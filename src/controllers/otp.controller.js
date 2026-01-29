@@ -1,14 +1,9 @@
+import supabase from "../services/supabase.service.js";
 import { PrismaClient } from "@prisma/client";
-import {
-    generateAndStoreOtp,
-    verifyOtp
-} from "../services/otp.service.js";
+import { logAudit } from "../services/audit.service.js";
 
 const prisma = new PrismaClient();
 
-/**
- * Request OTP (claim channel)
- */
 export const requestOtp = async (req, res) => {
     const { phoneNumber } = req.body;
 
@@ -21,9 +16,6 @@ export const requestOtp = async (req, res) => {
     res.json({ message: "OTP sent" });
 };
 
-/**
- * Verify OTP and return Unified ID reference
- */
 export const verifyOtpAndClaim = async (req, res) => {
     const { phoneNumber, otp } = req.body;
 
@@ -55,16 +47,53 @@ export const verifyOtpAndClaim = async (req, res) => {
 
 export const verifyOtpForIntent = async (req, res) => {
     try {
-        const { intentId, otpProof } = req.body;
+        const { intentId, accessToken } = req.body;
 
-        if (!intentId || !otpProof) {
-            return res.status(400).json({ error: "Missing intentId or otpProof" });
+        if (!intentId || !accessToken) {
+            return res.status(400).json({
+                error: "intentId and accessToken required"
+            });
         }
 
-        // 🔒 TODO: Verify otpProof with Supabase Admin API
-        // Assume verification succeeds for prototype
+        // 🔐 Verify token with Supabase
+        const { data, error } = await supabase.auth.getUser(accessToken);
 
-        const intent = await prisma.editIntent.update({
+        if (error || !data?.user) {
+            return res.status(401).json({
+                error: "Invalid or expired OTP token"
+            });
+        }
+
+        const verifiedPhone = data.user.phone;
+
+        // 🔍 Fetch intent + patient
+        const intent = await prisma.editIntent.findUnique({
+            where: { id: intentId },
+            include: { patient: true }
+        });
+
+        if (!intent) {
+            return res.status(404).json({ error: "Edit intent not found" });
+        }
+
+        if (intent.used || intent.expiresAt < new Date()) {
+            return res.status(403).json({ error: "Edit intent expired or used" });
+        }
+
+        // 🔗 Match phone number (Handle potential formatting differences)
+        // Supabase usually returns phone with '+' prefix
+        const patientPhone = intent.patient.phoneNumber.startsWith("+")
+            ? intent.patient.phoneNumber
+            : `+${intent.patient.phoneNumber}`;
+
+        if (patientPhone !== verifiedPhone) {
+            return res.status(403).json({
+                error: "OTP phone does not match patient phone"
+            });
+        }
+
+        // ✅ Mark intent as OTP-verified
+        await prisma.editIntent.update({
             where: { id: intentId },
             data: {
                 otpVerified: true,
@@ -73,10 +102,20 @@ export const verifyOtpForIntent = async (req, res) => {
             }
         });
 
-        res.json({
-            message: "OTP verified for edit intent",
-            intentId: intent.id
+        // 🧾 STEP 9 — Mandatory audit log entry
+        await logAudit({
+            staffId: intent.staffId,
+            patientId: intent.patientId,
+            action: "OTP_VERIFIED",
+            intentId,
+            otpProvider: "supabase"
         });
+
+        res.json({
+            message: "OTP verified and bound to edit intent",
+            intentId
+        });
+
     } catch (err) {
         res.status(500).json({
             error: "OTP verification failed",
