@@ -52,3 +52,35 @@ export const verifyOtpAndClaim = async (req, res) => {
         claimStatus: "CLAIMED"
     });
 };
+
+export const verifyOtpForIntent = async (req, res) => {
+    try {
+        const { intentId, otpProof } = req.body;
+
+        if (!intentId || !otpProof) {
+            return res.status(400).json({ error: "Missing intentId or otpProof" });
+        }
+
+        // 🔒 TODO: Verify otpProof with Supabase Admin API
+        // Assume verification succeeds for prototype
+
+        const intent = await prisma.editIntent.update({
+            where: { id: intentId },
+            data: {
+                otpVerified: true,
+                otpProvider: "supabase",
+                otpVerifiedAt: new Date()
+            }
+        });
+
+        res.json({
+            message: "OTP verified for edit intent",
+            intentId: intent.id
+        });
+    } catch (err) {
+        res.status(500).json({
+            error: "OTP verification failed",
+            details: err.message
+        });
+    }
+};

@@ -13,6 +13,7 @@ model Staff {
   password String
   role     String
 
+  editIntents EditIntent[]
 }
 
 model Patient {
@@ -28,6 +29,8 @@ model Patient {
   emergencyContact String
 
   createdAt        DateTime @default(now())
+
+  editIntents      EditIntent[]
 }
 
 model EMR {
@@ -69,6 +72,11 @@ model AuditLog {
   action    String
   emergency Boolean
   timestamp DateTime @default(now())
+
+  // Intent-based tracking
+  intentId      String?
+  otpVerified   Boolean   @default(false)
+  otpProvider   String?
 }
 
 model EmergencyAccess {
@@ -155,6 +163,28 @@ model PhoneOTP {
   expiresAt   DateTime
   used        Boolean  @default(false)
   createdAt   DateTime @default(now())
+}
+
+model EditIntent {
+  id            String   @id @default(uuid())
+
+  patientId     String
+  staffId       String
+  staffRole     String
+
+  allowedFields String   // JSON string of allowed EMR fields
+
+  expiresAt     DateTime
+  used          Boolean  @default(false)
+
+  otpVerified   Boolean  @default(false)
+  otpProvider   String?  // "supabase"
+  otpVerifiedAt DateTime?
+
+  createdAt     DateTime @default(now())
+
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  staff         Staff    @relation(fields: [staffId], references: [id])
 }
 
 

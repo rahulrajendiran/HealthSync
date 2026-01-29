@@ -8,7 +8,10 @@ export const logAudit = async ({
     staffId,
     patientId,
     action,
-    emergency = false
+    emergency = false,
+    intentId = null,
+    otpVerified = false,
+    otpProvider = null
 }) => {
     try {
         await prisma.auditLog.create({
@@ -16,7 +19,10 @@ export const logAudit = async ({
                 staffId,
                 patientId,
                 action,
-                emergency
+                emergency,
+                intentId,
+                otpVerified,
+                otpProvider
             }
         });
     } catch (err) {
@@ -33,6 +39,9 @@ export const formatAuditLogs = (logs) => {
         patientId: log.patientId,
         action: log.action,
         emergency: log.emergency,
+        intentId: log.intentId,
+        otpVerified: log.otpVerified,
+        otpProvider: log.otpProvider,
         timestamp: formatDateTime(log.timestamp)
     }));
 };

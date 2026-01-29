@@ -6,6 +6,8 @@ import {
     uploadPrescription,
     getPrescriptions
 } from "../controllers/emr.controller.js";
+import { requestEditIntent } from "../controllers/editIntent.controller.js";
+import { verifyOtpForIntent } from "../controllers/otp.controller.js";
 import { authenticate, rbac } from "../middleware/auth.middleware.js";
 import { uploadPrescriptionImage } from "../middleware/upload.middleware.js";
 
@@ -56,6 +58,19 @@ router.post(
 /**
  * Trigger emergency access (BREAK-GLASS)
  */
+router.post(
+    "/:patientId/edit-intent",
+    authenticate,
+    rbac(["MANAGEMENT"]),
+    requestEditIntent
+);
+
+router.post(
+    "/verify-otp",
+    authenticate,
+    verifyOtpForIntent
+);
+
 router.post("/:patientId/emergency", authenticate, triggerEmergencyAccess);
 
 export default router;

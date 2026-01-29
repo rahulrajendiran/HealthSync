@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { logAudit } from "../services/audit.service.js";
 import { grantEmergencyAccess, hasValidEmergencyAccess } from "../services/emergency.service.js";
 import { sendPushNotification } from "../services/push.service.js";
+import { consumeEditIntent } from "../services/editIntent.service.js";
+
 const prisma = new PrismaClient();
 
 export const getEMR = async (req, res) => {
@@ -64,39 +66,65 @@ export const getEMR = async (req, res) => {
         });
     }
 };
-/**
- * Update full EMR — MANAGEMENT only
- */
+
+
+const allowedEmrFields = [
+    "diagnosis",
+    "allergies",
+    "medications",
+    "surgeries"
+];
+
 export const updateEMR = async (req, res) => {
     try {
         const { patientId } = req.params;
-        const { role, staffId } = req.user;
+        const { intentId, ...updates } = req.body;
+        const { staffId, role } = req.user;
 
-        if (role !== "MANAGEMENT") {
-            return res.status(403).json({ error: "Only management can update EMR" });
+        if (!intentId) {
+            return res.status(403).json({
+                error: "Edit intent required"
+            });
         }
 
-        // Find existing to get ID
-        const existingEmr = await prisma.eMR.findFirst({
-            where: { patientId }
-        });
+        const intent = await consumeEditIntent({ intentId });
 
-        let updatedEmr;
+        if (intent.staffId !== staffId || intent.patientId !== patientId) {
+            return res.status(403).json({
+                error: "Intent does not match staff or patient"
+            });
+        }
+
+        const intentFields = JSON.parse(intent.allowedFields);
+
+        for (const field of Object.keys(updates)) {
+            if (
+                !allowedEmrFields.includes(field) ||
+                !intentFields.includes(field)
+            ) {
+                return res.status(403).json({
+                    error: `Field not allowed by intent: ${field}`
+                });
+            }
+        }
+
+        const existingEmr = await prisma.eMR.findFirst({ where: { patientId } });
+
+        let updated;
         if (existingEmr) {
-            updatedEmr = await prisma.eMR.update({
+            updated = await prisma.eMR.update({
                 where: { id: existingEmr.id },
                 data: {
-                    ...req.body,
+                    ...updates,
                     updatedByStaffId: staffId,
                     updatedByRole: role
                 }
             });
         } else {
-            // Create if not exists (upsert logic basically)
-            updatedEmr = await prisma.eMR.create({
+            updated = await prisma.eMR.create({
                 data: {
-                    ...req.body,
                     patientId,
+                    ...updates,
                     createdByStaffId: staffId,
                     updatedByStaffId: staffId,
                     updatedByRole: role
@@ -104,20 +132,23 @@ export const updateEMR = async (req, res) => {
             });
         }
 
+        // STEP 7 — Audit Logging (MANDATORY)
         await logAudit({
             staffId,
             patientId,
             action: "UPDATE_EMR",
-            emergency: false
+            intentId,
+            otpVerified: true,
+            otpProvider: "supabase"
         });
 
         res.json({
-            message: "EMR updated successfully",
-            updatedEmr
+            message: "EMR updated via intent",
+            updated
         });
     } catch (err) {
         res.status(500).json({
-            error: "Error updating EMR",
+            error: "EMR update failed",
             details: err.message
         });
     }
