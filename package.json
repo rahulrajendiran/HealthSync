@@ -1,0 +1,24 @@
+{
+    "name": "unified-smart-id-backend",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "src/server.js",
+    "scripts": {
+        "dev": "nodemon src/server.js",
+        "start": "node src/server.js"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.7.0",
+        "bcrypt": "^6.0.0",
+        "cors": "^2.8.5",
+        "express": "^4.19.2",
+        "firebase-admin": "^13.6.0",
+        "helmet": "^8.1.0",
+        "jsonwebtoken": "^9.0.2",
+        "multer": "^2.0.2"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.11",
+        "prisma": "^5.7.0"
+    }
+}

@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Staff {
+  id       String @id @default(uuid())
+  username String @unique
+  password String
+  role     String
+
+}
+
+model Patient {
+  id               String   @id @default(uuid())
+  unifiedId        String   @unique
+
+  name             String
+  age              Int
+  gender           String
+
+  phoneNumber      String
+  phoneVerified    Boolean  @default(false)
+  emergencyContact String
+
+  createdAt        DateTime @default(now())
+}
+
+model EMR {
+  id                 String   @id @default(uuid())
+  patientId          String
+
+  diagnosis          String?
+  surgeries          String?
+  allergies          String?
+  medications        String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  createdByStaffId   String
+  updatedByStaffId   String?
+  updatedByRole      String?
+}
+
+model Prescription {
+  id                 String   @id @default(uuid())
+  patientId          String
+
+  text               String
+  imageUrl           String?
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  createdByStaffId   String
+  updatedByStaffId   String?
+  updatedByRole      String?
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  staffId   String
+  patientId String
+  action    String
+  emergency Boolean
+  timestamp DateTime @default(now())
+}
+
+model EmergencyAccess {
+  id        String   @id @default(uuid())
+  staffId   String
+  patientId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+model InsuranceScheme {
+  id          String @id @default(uuid())
+  schemeCode  String @unique
+  schemeName  String
+  provider    String
+}
+
+model PatientInsurance {
+  id                 String   @id @default(uuid())
+  patientId           String
+  schemeCode          String
+  policyNo            String
+  validTill           DateTime
+  isActive            Boolean @default(true)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  createdByStaffId    String
+  updatedByStaffId    String?
+  updatedByRole       String?
+}
+model DeviceBinding {
+  id            String   @id @default(uuid())
+  unifiedId     String
+  deviceId      String
+  publicKey     String
+  deviceName    String
+  platform      String
+  pushToken     String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  revokedAt     DateTime?
+}
+
+model PushLog {
+  id        String   @id @default(uuid())
+  patientId String
+  eventType String   // CONSENT_REQUEST, EMERGENCY_ACCESS
+  status    String   // SUCCESS, FAILURE
+  errorMessage String?
+  timestamp DateTime @default(now())
+}
+model DeviceChallenge {
+  id          String   @id @default(uuid())
+  deviceId    String
+  challenge   String
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+model ConsentRequest {
+  id          String   @id @default(uuid())
+  patientId   String
+  staffId     String
+  purpose     String
+  status      String   @default("PENDING")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+model ConsentResponse {
+  id          String   @id @default(uuid())
+  patientId   String
+  staffId     String
+  purpose     String
+  status      String   @default("PENDING")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model PhoneOTP {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  otpHash     String
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+
