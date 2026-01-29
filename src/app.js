@@ -50,6 +50,15 @@ app.get("/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
+app.get("/", (req, res) => {
+    res.status(200).json({
+        status: "OK",
+        service: "Unified Smart ID Backend",
+        message: "Backend is running",
+        timestamp: new Date().toISOString()
+    });
+});
+
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.use("/api/auth", authRoutes);
